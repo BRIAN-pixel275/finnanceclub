@@ -114,7 +114,7 @@ export const disableShareCode = async (shareCode: string): Promise<void> => {
 
 // Sync user's data to Firebase
 export const syncDataToFirebase = async (
-  userId: string,
+  _userId: string,
   shareCode: string,
   data: Partial<AppState>
 ): Promise<void> => {
