@@ -5,11 +5,13 @@ import {
   onValue,
   update,
   remove,
+} from 'firebase/database';
+import type {
   DatabaseReference,
   Unsubscribe,
 } from 'firebase/database';
 import { database } from '../config/firebase';
-import { AppState } from '../store/useStore';
+import type { AppState } from '../store/useStore';
 
 const SHARE_CODES_PATH = 'shareCodes';
 const DATA_PATH = 'sharedData';
