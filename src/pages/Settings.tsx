@@ -3,9 +3,10 @@ import { useStore } from '../store/useStore';
 import { AlertTriangle, Moon, Sun, Monitor, Download, Upload, Trash2, ShieldAlert } from 'lucide-react';
 import { PolymorphicCard } from '../components/ui/PolymorphicCard';
 import { PolymorphicButton } from '../components/ui/PolymorphicButton';
+import ShareSettings from '../components/ShareSettings';
 
 export default function Settings() {
-  const { settings, updateSettings, resetData, importData, transactions, receipts, auditLog, notes, notesSavedAt } = useStore();
+  const { settings, updateSettings, resetData, importData, transactions, receipts, auditLog, notes, notesSavedAt, isViewOnlyMode } = useStore();
   const [cleared, setCleared] = useState(false);
 
   const handleClearData = () => {
@@ -189,6 +190,9 @@ export default function Settings() {
           )}
         </div>
       </PolymorphicCard>
+
+      {/* Share Settings - Only for full access users */}
+      {!isViewOnlyMode && <ShareSettings />}
 
       {/* Data */}
       <PolymorphicCard>

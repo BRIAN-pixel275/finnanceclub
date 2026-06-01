@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useSearchParams } from 'react-router-dom';
 import Layout from './components/Layout';
 import NotFound from './components/NotFound';
 import LockScreen from './components/LockScreen';
 import InstallPrompt from './components/InstallPrompt';
+import ViewOnlyLogin from './pages/ViewOnlyLogin';
 import { useStore } from './store/useStore';
 
 import Dashboard from './pages/Dashboard';
@@ -13,8 +14,26 @@ import Reports from './pages/Reports';
 import Accountability from './pages/Accountability';
 import Settings from './pages/Settings';
 
+// Component to handle shareable links
+function ShareLinkHandler() {
+  const [searchParams] = useSearchParams();
+  const { isViewOnlyMode } = useStore();
+  
+  const shareCode = searchParams.get('shareCode');
+  
+  // If there's a share code in the URL and we're not in view-only mode yet, redirect to login
+  if (shareCode && !isViewOnlyMode) {
+    return <Navigate to={`/view-only-login?code=${shareCode}`} replace />;
+  }
+  
+  return <Navigate to="/dashboard" replace />;
+}
+
 export default function App() {
-  const { settings, sessionToken, lockVault } = useStore();
+  const { settings, sessionToken, lockVault, isViewOnlyMode } = useStore();
+  const [searchParams] = useSearchParams();
+  
+  const shareCode = searchParams.get('shareCode');
 
   // 1. Dark Mode Toggle
   useEffect(() => {
@@ -28,7 +47,7 @@ export default function App() {
 
   // 2. Inactivity Auto-Lock Security Listener
   useEffect(() => {
-    if (!settings.pinEnabled || !sessionToken) return;
+    if (!settings.pinEnabled || !sessionToken || isViewOnlyMode) return;
 
     let inactivityTimeout: any;
 
@@ -53,10 +72,10 @@ export default function App() {
         window.removeEventListener(event, resetTimer);
       });
     };
-  }, [settings.pinEnabled, sessionToken, settings.sessionTimeoutMinutes, lockVault]);
+  }, [settings.pinEnabled, sessionToken, settings.sessionTimeoutMinutes, lockVault, isViewOnlyMode]);
 
   // 3. Security Guard Intercept rendering
-  if (settings.pinEnabled && !sessionToken) {
+  if (settings.pinEnabled && !sessionToken && !isViewOnlyMode) {
     return <LockScreen />;
   }
 
@@ -64,7 +83,8 @@ export default function App() {
     <BrowserRouter>
       <InstallPrompt />
       <Routes>
-        <Route path="/" element={<Layout />}>
+        <Route path="/view-only-login" element={<ViewOnlyLogin />} />
+        <Route path="/" element={shareCode && !isViewOnlyMode ? <ShareLinkHandler /> : <Layout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="transactions" element={<Transactions />} />

@@ -62,6 +62,15 @@ export interface AppState {
   currentUser: User | null;
   registerUser: (name: string, role: string, accessLevel: 'full' | 'view_only', pin: string) => void;
   
+  // Sharing & View-Only Mode
+  isViewOnlyMode: boolean;
+  shareCode: string | null;
+  sharedTransactions: Transaction[];
+  sharedReceipts: Receipt[];
+  sharedSettings: AppSettings | null;
+  sharedNotes: string;
+  lastSyncTime: string | null;
+  
   // Actions
   addTransaction: (t: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateTransaction: (id: string, t: Partial<Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>>) => void;
@@ -77,6 +86,15 @@ export interface AppState {
   unlockVault: (pin: string) => boolean;
   lockVault: () => void;
   refreshSession: () => void;
+  
+  // Sharing Actions
+  setViewOnlyMode: (enabled: boolean, sharedData?: any) => void;
+  setSharedData: (data: any) => void;
+  setShareCode: (code: string) => void;
+  getActiveTransactions: () => Transaction[];
+  getActiveReceipts: () => Receipt[];
+  getActiveSettings: () => AppSettings;
+  getActiveNotes: () => string;
 }
 
 const generateMockTransactions = (): Transaction[] => {
@@ -165,6 +183,15 @@ export const useStore = create<AppState>()(
         }
       ],
       currentUser: null,
+      
+      // Sharing & View-Only Mode
+      isViewOnlyMode: false,
+      shareCode: null,
+      sharedTransactions: [],
+      sharedReceipts: [],
+      sharedSettings: null,
+      sharedNotes: '',
+      lastSyncTime: null,
 
       registerUser: (name, role, accessLevel, pin) => set((state) => {
         const newUser: User = {
@@ -194,6 +221,10 @@ export const useStore = create<AppState>()(
       }),
 
       addTransaction: (t) => set((state) => {
+        if (state.isViewOnlyMode) {
+          console.warn('Cannot add transaction in view-only mode');
+          return state;
+        }
         const sanitizedDesc = t.description.replace(/<\/?[^>]+(>|$)/g, "");
         const newTx: Transaction = {
           ...t,
@@ -215,6 +246,10 @@ export const useStore = create<AppState>()(
       }),
 
       updateTransaction: (id, updates) => set((state) => {
+        if (state.isViewOnlyMode) {
+          console.warn('Cannot update transaction in view-only mode');
+          return state;
+        }
         const index = state.transactions.findIndex(t => t.id === id);
         if (index === -1) return state;
         const oldTx = state.transactions[index];
@@ -246,6 +281,10 @@ export const useStore = create<AppState>()(
       }),
 
       deleteTransaction: (id) => set((state) => {
+        if (state.isViewOnlyMode) {
+          console.warn('Cannot delete transaction in view-only mode');
+          return state;
+        }
         const tx = state.transactions.find(t => t.id === id);
         if (!tx) return state;
         
@@ -263,6 +302,10 @@ export const useStore = create<AppState>()(
       }),
 
       addReceipt: (r) => set((state) => {
+        if (state.isViewOnlyMode) {
+          console.warn('Cannot add receipt in view-only mode');
+          return state;
+        }
         const newReceipt: Receipt = {
           ...r,
           id: crypto.randomUUID(),
@@ -280,9 +323,15 @@ export const useStore = create<AppState>()(
         };
       }),
 
-      deleteReceipt: (id) => set((state) => ({
-        receipts: state.receipts.filter(r => r.id !== id)
-      })),
+      deleteReceipt: (id) => set((state) => {
+        if (state.isViewOnlyMode) {
+          console.warn('Cannot delete receipt in view-only mode');
+          return state;
+        }
+        return {
+          receipts: state.receipts.filter(r => r.id !== id)
+        };
+      }),
 
       updateSettings: (updates) => set((state) => {
         const newLog: AuditEntry = {
@@ -423,7 +472,63 @@ export const useStore = create<AppState>()(
 
       refreshSession: () => {
         // Keeps active session
-      }
+      },
+      
+      // Sharing & View-Only Mode Functions
+      setViewOnlyMode: (enabled, sharedData) => set(() => {
+        if (enabled && sharedData) {
+          return {
+            isViewOnlyMode: true,
+            sharedTransactions: sharedData.transactions || [],
+            sharedReceipts: sharedData.receipts || [],
+            sharedSettings: sharedData.settings || null,
+            sharedNotes: sharedData.notes || '',
+            lastSyncTime: sharedData.lastUpdated || new Date().toISOString(),
+          };
+        } else {
+          return {
+            isViewOnlyMode: false,
+            shareCode: null,
+            sharedTransactions: [],
+            sharedReceipts: [],
+            sharedSettings: null,
+            sharedNotes: '',
+            lastSyncTime: null,
+          };
+        }
+      }),
+
+      setSharedData: (data) => set(() => ({
+        sharedTransactions: data.transactions || [],
+        sharedReceipts: data.receipts || [],
+        sharedSettings: data.settings || null,
+        sharedNotes: data.notes || '',
+        lastSyncTime: data.lastUpdated || new Date().toISOString(),
+      })),
+
+      setShareCode: (code) => set(() => ({
+        shareCode: code,
+      })),
+
+      getActiveTransactions: () => {
+        const state = get();
+        return state.isViewOnlyMode ? state.sharedTransactions : state.transactions;
+      },
+
+      getActiveReceipts: () => {
+        const state = get();
+        return state.isViewOnlyMode ? state.sharedReceipts : state.receipts;
+      },
+
+      getActiveSettings: () => {
+        const state = get();
+        return state.isViewOnlyMode && state.sharedSettings ? state.sharedSettings : state.settings;
+      },
+
+      getActiveNotes: () => {
+        const state = get();
+        return state.isViewOnlyMode ? state.sharedNotes : state.notes;
+      },
     }),
     {
       name: 'clubvault-storage',
