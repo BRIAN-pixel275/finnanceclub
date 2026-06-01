@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Share2, Copy, RotateCcw, Trash2, Check, AlertCircle } from 'lucide-react';
+import { Share2, Copy, RotateCcw, Trash2, Check, AlertCircle, AlertTriangle } from 'lucide-react';
 import { createShareCode, disableShareCode } from '../utils/firebaseSync';
+import { isFirebaseConfigured } from '../config/firebase';
 import { useStore } from '../store/useStore';
 
 export default function ShareSettings() {
@@ -9,6 +10,7 @@ export default function ShareSettings() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [copied, setCopied] = useState(false);
+  const firebaseReady = isFirebaseConfigured();
 
   // Retrieve existing share code from localStorage or generate a new one
   useEffect(() => {
@@ -19,6 +21,11 @@ export default function ShareSettings() {
   }, []);
 
   const handleGenerateCode = async () => {
+    if (!firebaseReady) {
+      setMessage('Firebase is not configured. Please add environment variables.');
+      return;
+    }
+
     if (!currentUser) {
       setMessage('You must be logged in to generate a share code.');
       return;
@@ -81,6 +88,16 @@ export default function ShareSettings() {
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Share Settings</h2>
       </div>
 
+      {!firebaseReady && (
+        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex gap-3">
+          <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+          <div className="text-red-800 dark:text-red-300 text-sm">
+            <p className="font-semibold">Firebase Not Configured</p>
+            <p className="mt-1">Please add Firebase environment variables to enable sharing. See <code className="bg-red-100 dark:bg-red-800 px-2 py-1 rounded text-xs">SHARING_SETUP.md</code> for instructions.</p>
+          </div>
+        </div>
+      )}
+
       <p className="text-gray-600 dark:text-gray-400 mb-6">
         Generate a share code to allow the organization's secretary general to view your financial data in read-only mode.
       </p>
@@ -142,7 +159,7 @@ export default function ShareSettings() {
           <p className="text-gray-600 dark:text-gray-400 mb-4">No share code generated yet.</p>
           <button
             onClick={handleGenerateCode}
-            disabled={loading}
+            disabled={loading || !firebaseReady}
             className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white font-semibold py-2 px-6 rounded-lg transition-colors inline-flex items-center gap-2"
           >
             <Share2 className="w-4 h-4" />
@@ -156,7 +173,7 @@ export default function ShareSettings() {
         <div className="flex gap-3">
           <button
             onClick={handleGenerateCode}
-            disabled={loading}
+            disabled={loading || !firebaseReady}
             className="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             <RotateCcw className="w-4 h-4" />
@@ -164,7 +181,7 @@ export default function ShareSettings() {
           </button>
           <button
             onClick={handleRevokeCode}
-            disabled={loading}
+            disabled={loading || !firebaseReady}
             className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-semibold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             <Trash2 className="w-4 h-4" />

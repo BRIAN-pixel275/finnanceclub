@@ -10,11 +10,20 @@ import type {
   DatabaseReference,
   Unsubscribe,
 } from 'firebase/database';
-import { database } from '../config/firebase';
+import { database, isFirebaseConfigured } from '../config/firebase';
 import type { AppState } from '../store/useStore';
 
 const SHARE_CODES_PATH = 'shareCodes';
 const DATA_PATH = 'sharedData';
+
+// Check if Firebase operations are available
+const isFirebaseAvailable = () => {
+  if (!isFirebaseConfigured() || !database) {
+    console.warn('Firebase is not configured. Sharing features are disabled.');
+    return false;
+  }
+  return true;
+};
 
 // Generate a random 6-character alphanumeric code
 export const generateShareCode = (): string => {
@@ -31,8 +40,12 @@ export const createShareCode = async (
   userId: string,
   clubName: string
 ): Promise<string> => {
+  if (!isFirebaseAvailable()) {
+    throw new Error('Firebase is not configured. Please add environment variables.');
+  }
+
   const shareCode = generateShareCode();
-  const codeRef = ref(database, `${SHARE_CODES_PATH}/${shareCode}`);
+  const codeRef = ref(database!, `${SHARE_CODES_PATH}/${shareCode}`);
 
   const codeData = {
     ownerId: userId,
@@ -48,7 +61,11 @@ export const createShareCode = async (
 
 // Verify a share code exists and is active
 export const verifyShareCode = async (shareCode: string): Promise<boolean> => {
-  const codeRef = ref(database, `${SHARE_CODES_PATH}/${shareCode}`);
+  if (!isFirebaseAvailable()) {
+    return false;
+  }
+
+  const codeRef = ref(database!, `${SHARE_CODES_PATH}/${shareCode}`);
   const snapshot = await get(codeRef);
 
   if (!snapshot.exists()) {
@@ -70,7 +87,11 @@ export const verifyShareCode = async (shareCode: string): Promise<boolean> => {
 
 // Get share code owner ID
 export const getShareCodeOwner = async (shareCode: string): Promise<string | null> => {
-  const codeRef = ref(database, `${SHARE_CODES_PATH}/${shareCode}`);
+  if (!isFirebaseAvailable()) {
+    return null;
+  }
+
+  const codeRef = ref(database!, `${SHARE_CODES_PATH}/${shareCode}`);
   const snapshot = await get(codeRef);
 
   if (!snapshot.exists()) {
@@ -82,8 +103,13 @@ export const getShareCodeOwner = async (shareCode: string): Promise<string | nul
 
 // Disable a share code
 export const disableShareCode = async (shareCode: string): Promise<void> => {
-  const codeRef = ref(database, `${SHARE_CODES_PATH}/${shareCode}/isActive`);
+  if (!isFirebaseAvailable()) {
+    throw new Error('Firebase is not configured.');
+  }
+
+  const codeRef = ref(database!, `${SHARE_CODES_PATH}/${shareCode}/isActive`);
   await set(codeRef, false);
+};
 };
 
 // Sync user's data to Firebase
@@ -92,7 +118,12 @@ export const syncDataToFirebase = async (
   shareCode: string,
   data: Partial<AppState>
 ): Promise<void> => {
-  const dataRef = ref(database, `${DATA_PATH}/${shareCode}`);
+  if (!isFirebaseAvailable()) {
+    console.warn('Firebase not configured, skipping data sync.');
+    return;
+  }
+
+  const dataRef = ref(database!, `${DATA_PATH}/${shareCode}`);
 
   const syncData = {
     transactions: data.transactions || [],
@@ -110,8 +141,13 @@ export const syncDataToFirebase = async (
 export const listenForDataChanges = (
   shareCode: string,
   onDataChange: (data: any) => void
-): Unsubscribe => {
-  const dataRef = ref(database, `${DATA_PATH}/${shareCode}`);
+): Unsubscribe | null => {
+  if (!isFirebaseAvailable()) {
+    console.warn('Firebase not configured, cannot listen for data changes.');
+    return null as any;
+  }
+
+  const dataRef = ref(database!, `${DATA_PATH}/${shareCode}`);
 
   const unsubscribe = onValue(dataRef, (snapshot) => {
     if (snapshot.exists()) {
@@ -124,7 +160,11 @@ export const listenForDataChanges = (
 
 // Get shared data once
 export const getSharedData = async (shareCode: string): Promise<any> => {
-  const dataRef = ref(database, `${DATA_PATH}/${shareCode}`);
+  if (!isFirebaseAvailable()) {
+    return null;
+  }
+
+  const dataRef = ref(database!, `${DATA_PATH}/${shareCode}`);
   const snapshot = await get(dataRef);
 
   if (!snapshot.exists()) {
@@ -136,6 +176,10 @@ export const getSharedData = async (shareCode: string): Promise<any> => {
 
 // Revoke a share code (owner only)
 export const revokeShareCode = async (shareCode: string, userId: string): Promise<boolean> => {
+  if (!isFirebaseAvailable()) {
+    return false;
+  }
+
   const ownerId = await getShareCodeOwner(shareCode);
 
   if (ownerId !== userId) {

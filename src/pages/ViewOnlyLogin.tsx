@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, Lock, ArrowRight } from 'lucide-react';
+import { AlertCircle, Lock, ArrowRight, AlertTriangle } from 'lucide-react';
 import { verifyShareCode, getSharedData } from '../utils/firebaseSync';
+import { isFirebaseConfigured } from '../config/firebase';
 import { useStore } from '../store/useStore';
 
 export default function ViewOnlyLogin() {
@@ -10,9 +11,16 @@ export default function ViewOnlyLogin() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { setViewOnlyMode, setSharedData, setShareCode: storeShareCode } = useStore();
+  const firebaseReady = isFirebaseConfigured();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!firebaseReady) {
+      setError('Firebase is not configured on this server. Sharing is not available.');
+      return;
+    }
+
     setError('');
     setLoading(true);
 
@@ -76,6 +84,13 @@ export default function ViewOnlyLogin() {
             </div>
           )}
 
+          {!firebaseReady && (
+            <div className="mb-6 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg flex gap-3">
+              <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+              <p className="text-yellow-800 dark:text-yellow-300 text-sm"><strong>Firebase not configured</strong> on this server. Share codes cannot be verified.</p>
+            </div>
+          )}
+
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
@@ -99,7 +114,7 @@ export default function ViewOnlyLogin() {
 
             <button
               type="submit"
-              disabled={loading || shareCode.length !== 6}
+              disabled={loading || shareCode.length !== 6 || !firebaseReady}
               className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               {loading ? (
