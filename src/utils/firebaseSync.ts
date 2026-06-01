@@ -110,7 +110,6 @@ export const disableShareCode = async (shareCode: string): Promise<void> => {
   const codeRef = ref(database!, `${SHARE_CODES_PATH}/${shareCode}/isActive`);
   await set(codeRef, false);
 };
-};
 
 // Sync user's data to Firebase
 export const syncDataToFirebase = async (
